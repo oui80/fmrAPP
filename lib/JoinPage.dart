@@ -11,7 +11,6 @@ class JoinPage extends StatefulWidget {
 
 class _JoinPageState extends State<JoinPage> {
   final TextEditingController _controller = TextEditingController();
-  final TextEditingController _controller2 = TextEditingController();
   String _errorMessage = '';
 
   Future<void> _addGameLocal(String idGame) async {
@@ -32,42 +31,26 @@ class _JoinPageState extends State<JoinPage> {
         localData['Games'].removeWhere((element) => element['id'] == idGame);
       }
     }
-    localData['Games']
-        .insert(0, {'id': idGame, 'nomJoueur': _controller2.text});
+    localData['Games'].insert(0, {'id': idGame});
     writeData(localData);
   }
 
-  Future<void> _joinGame(String idGame) async {
-    String url = 'http://nausicaa.programind.fr:5000/api/update_score/$idGame';
-    final body = json.encode({
-      "name": _controller2.text,
-      "score": {
-        "date": DateTime.now().toIso8601String(),
-        "score": 0,
-      },
-    });
+  Future<bool> _joinGame(String idGame) async {
+    String url = 'http://nausicaa.programind.fr:5000/api/get_chef/$idGame';
     try {
-      // Envoi de la requête POST
-      final response = await http
-          .post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: body,
-      )
-          .then((response) async {
-        if (response.statusCode == 200) {
-          final responseData = json.decode(response.body);
-          await _addGameLocal(idGame);
-        } else {
-          throw Exception('Failed to join game');
-        }
-      });
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        await _addGameLocal(idGame);
+        return true;
+      } else {
+        throw Exception('Failed to join game');
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Cette partie n\'existe pas';
       });
+      return false;
     }
   }
 
@@ -94,15 +77,7 @@ class _JoinPageState extends State<JoinPage> {
                         _errorMessage = '';
                       });
                     },
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _controller2,
-                    decoration: InputDecoration(
-                      labelText: 'Pseudo',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
+                  )
                 ],
               ),
             ),
@@ -112,12 +87,14 @@ class _JoinPageState extends State<JoinPage> {
             right: 20,
             child: ElevatedButton(
               onPressed: () async {
-                await _joinGame(_controller.text);
+                bool move = await _joinGame(_controller.text);
 
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ListPage()),
-                );
+                if (move) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ListPage()),
+                  );
+                }
               },
               child: Icon(Icons.check),
               style: ElevatedButton.styleFrom(

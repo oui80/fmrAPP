@@ -23,15 +23,16 @@ class Player {
 
 class Score {
   final String date;
-  final int scoreValue; // Renommer pour éviter la confusion avec le champ imbriqué
+  final int scoreValue;
 
   Score({required this.date, required this.scoreValue});
 
   factory Score.fromJson(Map<String, dynamic> json) {
-    return Score(
+    Score s =  Score(
       date: json['date'] as String,
-      scoreValue: json['score']['score'] as int, // Accéder à la valeur de score
+      scoreValue: json['score'] as int,
     );
+    return s;
   }
 }
 

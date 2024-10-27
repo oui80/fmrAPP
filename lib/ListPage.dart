@@ -18,6 +18,7 @@ class _ListPageState extends State<ListPage> {
   String idGame = '';
   late String chefFromJson;
   bool isChef = false;
+  TextEditingController _controller = TextEditingController();
 
   void _copyToClipboard(BuildContext context) {
     Clipboard.setData(ClipboardData(text: idGame));
@@ -66,8 +67,9 @@ class _ListPageState extends State<ListPage> {
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
         setState(() {
-          Data data = Data.fromJson(responseData);
-          players = data.players; // Assurez-vous que `players` est une liste de type `Player`
+          players = responseData['players']
+              .map<Player>((player) => Player.fromJson(player))
+              .toList();
           isLoading = false;
         });
       } else {
@@ -78,20 +80,15 @@ class _ListPageState extends State<ListPage> {
     }
   }
 
-
   Future<void> _updateScore(int i) async {
-    Map<String, dynamic> localData = await readData();
-    String nameJoueur = localData['Games'][0]['nomJoueur'];
+    String nameJoueur = players[i].name;
 
-    final url = 'http://nausicaa.programind.fr:5000/api/update_score';
+    final url = 'http://nausicaa.programind.fr:5000/api/update_score/$idGame';
 
     // Corps de la requête en format JSON
     final body = json.encode({
       "name": nameJoueur,
-      "score": {
-        "date": DateTime.now().toIso8601String(),
-        "score": players[i].scores.last.scoreValue,
-      },
+      "score": players[i].scores.last.scoreValue,
     });
 
     try {
@@ -101,6 +98,7 @@ class _ListPageState extends State<ListPage> {
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
+          'X-HTTP-Version': 'HTTP/1.1 ',
         },
         body: body,
       )
@@ -109,7 +107,7 @@ class _ListPageState extends State<ListPage> {
           final responseData = json.decode(response.body);
           print(responseData);
         } else {
-          throw Exception('Failed to create game');
+          throw Exception('Failed to load data');
         }
       });
     } catch (e) {
@@ -120,8 +118,9 @@ class _ListPageState extends State<ListPage> {
   void _addPoint(int index) {
     setState(() {
       var currentTime = DateTime.now().toIso8601String();
-      players[index].scores.add(
-          Score(date: currentTime, scoreValue: players[index].scores.last.scoreValue + 1));
+      players[index].scores.add(Score(
+          date: currentTime,
+          scoreValue: players[index].scores.last.scoreValue + 1));
     });
     _updateScore(index);
   }
@@ -129,52 +128,55 @@ class _ListPageState extends State<ListPage> {
   void _minusPoint(int index) {
     setState(() {
       var currentTime = DateTime.now().toIso8601String();
-      players[index].scores.add(
-          Score(date: currentTime, scoreValue: players[index].scores.last.scoreValue - 1));
+      players[index].scores.add(Score(
+          date: currentTime,
+          scoreValue: players[index].scores.last.scoreValue - 1));
     });
     _updateScore(index);
-  }
-
-  String _formatDate(String date) {
-    return DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(date));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: Center(
-              child: InkWell(
-                  onTap: () => _copyToClipboard(context),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Text('ID :   $idGame',
-                        style:
-                            const TextStyle(fontSize: 25, letterSpacing: 1.5)),
-                  )))),
+        title: Center(
+          child: InkWell(
+            onTap: () => _copyToClipboard(context),
+            child: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Text(
+                'ID :   $idGame',
+                style: const TextStyle(fontSize: 25, letterSpacing: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ),
       body: Stack(
         children: <Widget>[
           if (isLoading)
             const Center(child: CircularProgressIndicator())
           else
-            Padding(
-              padding: const EdgeInsets.only(
-                  left: 15.0, top: 30, right: 15, bottom: 15),
-              child: ListView.builder(
-                itemCount: players.length,
-                itemBuilder: (context, index) {
-                  var player = players[index];
-                  return Card(
-                    margin: const EdgeInsets.all(10),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(10),
-                      title: Text(
-                        '${player.name}   ${player.scores.last.scoreValue}',
-                        style: const TextStyle(fontSize: 20),
-                      ),
-                      trailing: isChef
-                          ? Row(
+            Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                        left: 15.0, top: 30, right: 15, bottom: 15),
+                    child: ListView.builder(
+                      itemCount: players.length,
+                      itemBuilder: (context, index) {
+                        var player = players[index];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 6, left: 10, right: 10, top: 6),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(6),
+                            title: Text(
+                              '  ${player.name}   ${player.scores.last.scoreValue}',
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                            trailing: isChef
+                                ? Row(
                               mainAxisSize: MainAxisSize.min,
                               children: <Widget>[
                                 IconButton(
@@ -189,10 +191,65 @@ class _ListPageState extends State<ListPage> {
                                 ),
                               ],
                             )
-                          : null,
+                                : null,
+                          ),
+                        );
+                      },
                     ),
+                  ),
+                ),
+                const SizedBox(
+                  width: 100, // Set the desired width
+                  height: 80,
+                ),
+              ],
+            ),
+          if (isChef)
+            Positioned(
+              bottom: 20,
+              left: 20,
+              child: ElevatedButton(
+                onPressed: () {
+                  // on ouvre un dialogue pour ajouter un joueur
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Ajouter un joueur'),
+                        content: TextField(
+                          controller: _controller,
+                        ),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Annuler'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                players.add(Player(
+                                  name: _controller.text,
+                                  scores: [Score(date: DateTime.now().toIso8601String(), scoreValue: 0)],
+                                ));
+                                _updateScore(players.length - 1);
+                                _controller.clear();
+                              });
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Ajouter'),
+                          ),
+                        ],
+                      );
+                    },
                   );
                 },
+                child: const Icon(Icons.add),
+                style: ElevatedButton.styleFrom(
+                  shape: CircleBorder(),
+                  padding: EdgeInsets.all(20),
+                ),
               ),
             ),
           Positioned(
