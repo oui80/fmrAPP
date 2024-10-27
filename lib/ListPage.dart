@@ -80,7 +80,7 @@ class _ListPageState extends State<ListPage> {
     }
   }
 
-  Future<void> _updateScore(int i) async {
+  Future<void> _updateScore(int i,int incr) async {
     String nameJoueur = players[i].name;
 
     final url = 'http://nausicaa.programind.fr:5000/api/update_score/$idGame';
@@ -88,7 +88,7 @@ class _ListPageState extends State<ListPage> {
     // Corps de la requête en format JSON
     final body = json.encode({
       "name": nameJoueur,
-      "score": players[i].scores.last.scoreValue,
+      "score": incr,
     });
 
     try {
@@ -101,28 +101,25 @@ class _ListPageState extends State<ListPage> {
           'X-HTTP-Version': 'HTTP/1.1 ',
         },
         body: body,
-      )
-          .then((response) async {
-        if (response.statusCode == 200) {
-          final responseData = json.decode(response.body);
-          print(responseData);
-        } else {
-          throw Exception('Failed to load data');
-        }
-      });
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update score');
+      }
     } catch (e) {
       print('Error: $e');
     }
   }
 
-  void _addPoint(int index) {
+  void _addPoint(int index) async {
     setState(() {
       var currentTime = DateTime.now().toIso8601String();
       players[index].scores.add(Score(
           date: currentTime,
           scoreValue: players[index].scores.last.scoreValue + 1));
     });
-    _updateScore(index);
+    _updateScore(index,1);
+
   }
 
   void _minusPoint(int index) {
@@ -131,8 +128,8 @@ class _ListPageState extends State<ListPage> {
       players[index].scores.add(Score(
           date: currentTime,
           scoreValue: players[index].scores.last.scoreValue - 1));
+      _updateScore(index,-1);
     });
-    _updateScore(index);
   }
 
   @override
@@ -233,7 +230,7 @@ class _ListPageState extends State<ListPage> {
                                   name: _controller.text,
                                   scores: [Score(date: DateTime.now().toIso8601String(), scoreValue: 0)],
                                 ));
-                                _updateScore(players.length - 1);
+                                _updateScore(players.length - 1,0);
                                 _controller.clear();
                               });
                               Navigator.of(context).pop();
