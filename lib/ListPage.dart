@@ -16,6 +16,7 @@ class _ListPageState extends State<ListPage> {
   List<Player> players = [];
   bool isLoading = true;
   String idGame = '';
+  String nomPartie = "";
   late String chefFromJson;
   bool isChef = false;
   TextEditingController _controller = TextEditingController();
@@ -39,13 +40,14 @@ class _ListPageState extends State<ListPage> {
       // on récupère la première partie de la base de données
       idGame = localData['Games'][0]['id'];
       chefFromJson = localData['idPhone'];
+      nomPartie = localData['Games'][0]['nomPartie'];
 
       String url = 'http://nausicaa.programind.fr:5000/api/get_chef/$idGame';
       try {
         http.get(Uri.parse(url)).then((response) {
           if (response.statusCode == 200) {
             final responseData = json.decode(response.body);
-            if (responseData == chefFromJson) {
+            if (responseData["id_chef"] == chefFromJson) {
               isChef = true;
             }
           } else {
@@ -80,7 +82,7 @@ class _ListPageState extends State<ListPage> {
     }
   }
 
-  Future<void> _updateScore(int i,int incr) async {
+  Future<void> _updateScore(int i, num incr) async {
     String nameJoueur = players[i].name;
 
     final url = 'http://nausicaa.programind.fr:5000/api/update_score/$idGame';
@@ -93,8 +95,7 @@ class _ListPageState extends State<ListPage> {
 
     try {
       // Envoi de la requête POST
-      final response = await http
-          .post(
+      final response = await http.post(
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
@@ -111,41 +112,51 @@ class _ListPageState extends State<ListPage> {
     }
   }
 
-  void _addPoint(int index) async {
+  void _addPoint(int index, num incr) async {
     setState(() {
       var currentTime = DateTime.now().toIso8601String();
-      players[index].scores.add(Score(
-          date: currentTime,
-          scoreValue: players[index].scores.last.scoreValue + 1));
+      for (var i = 0; i < players.length; i++) {
+        if (i != index) {
+          players[i].scores.add(Score(
+              date: currentTime,
+              scoreValue: players[i].scores.last.scoreValue));
+        } else {
+          players[i].scores.add(Score(
+              date: currentTime,
+              scoreValue: players[i].scores.last.scoreValue + incr));
+        }
+      }
     });
-    _updateScore(index,1);
-
-  }
-
-  void _minusPoint(int index) {
-    setState(() {
-      var currentTime = DateTime.now().toIso8601String();
-      players[index].scores.add(Score(
-          date: currentTime,
-          scoreValue: players[index].scores.last.scoreValue - 1));
-      _updateScore(index,-1);
-    });
+    _updateScore(index, incr);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Center(
-          child: InkWell(
-            onTap: () => _copyToClipboard(context),
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Text(
-                'ID :   $idGame',
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 10),
+              ),
+              Text(
+                nomPartie,
                 style: const TextStyle(fontSize: 25, letterSpacing: 1.5),
               ),
-            ),
+              InkWell(
+                onTap: () => _copyToClipboard(context),
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                      bottom: 10, left: 10, right: 10, top: 10),
+                  child: Text(
+                    'ID :   $idGame',
+                    style: const TextStyle(fontSize: 15, letterSpacing: 1.5),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -165,29 +176,97 @@ class _ListPageState extends State<ListPage> {
                       itemBuilder: (context, index) {
                         var player = players[index];
                         return Card(
-                          margin: const EdgeInsets.only(bottom: 6, left: 10, right: 10, top: 6),
+                          margin: const EdgeInsets.only(
+                              bottom: 8, left: 10, right: 10, top: 6),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.all(6),
-                            title: Text(
-                              '  ${player.name}   ${player.scores.last.scoreValue}',
-                              style: const TextStyle(fontSize: 20),
+                            contentPadding: const EdgeInsets.only(
+                                bottom: 2, left: 15, right: 10, top: 2),
+                            title: Column(
+                              children: [
+                                SizedBox(
+                                  width: 1000,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.deepPurple[50],
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                              left: 5.0, right: 5),
+                                          child: Text(
+                                            '${player.scores.last.scoreValue}',
+                                            style: const TextStyle(
+                                                fontSize: 24,
+                                                color: Colors.deepPurple),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(child: Container()),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 1000,
+                                  child: Text(
+                                    player.name,
+                                    style: const TextStyle(fontSize: 22),
+                                  ),
+                                ),
+                              ],
                             ),
                             trailing: isChef
                                 ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                IconButton(
-                                  icon: const Icon(Icons.remove),
-                                  onPressed: () => _minusPoint(index),
-                                  tooltip: 'Diminuer un point',
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add),
-                                  onPressed: () => _addPoint(index),
-                                  tooltip: 'Ajouter un point',
-                                ),
-                              ],
-                            )
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      SizedBox(
+                                        width: 30,
+                                        child: IconButton(
+                                          icon:
+                                              const Icon(Icons.remove_rounded),
+                                          iconSize: 15,
+                                          onPressed: () =>
+                                              _addPoint(index, -0.5),
+                                          tooltip: 'Diminuer un point',
+                                          padding: EdgeInsets.all(0),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 40,
+                                        child: IconButton(
+                                          iconSize: 30,
+                                          icon:
+                                              const Icon(Icons.remove_rounded),
+                                          onPressed: () => _addPoint(index, -1),
+                                          tooltip: 'Diminuer un point',
+                                          padding: EdgeInsets.all(0),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 40,
+                                        child: IconButton(
+                                          iconSize: 30,
+                                          icon: const Icon(Icons.add_rounded),
+                                          onPressed: () => _addPoint(index, 1),
+                                          tooltip: 'Ajouter un point',
+                                          padding: EdgeInsets.all(0),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 30,
+                                        child: IconButton(
+                                          icon: const Icon(Icons.add_rounded),
+                                          iconSize: 15,
+                                          onPressed: () =>
+                                              _addPoint(index, 0.5),
+                                          tooltip: 'Ajouter un demi point',
+                                          padding: EdgeInsets.all(0),
+                                        ),
+                                      ),
+                                    ],
+                                  )
                                 : null,
                           ),
                         );
@@ -203,8 +282,8 @@ class _ListPageState extends State<ListPage> {
             ),
           if (isChef)
             Positioned(
-              bottom: 20,
-              left: 20,
+              bottom: 30,
+              left: 40,
               child: ElevatedButton(
                 onPressed: () {
                   // on ouvre un dialogue pour ajouter un joueur
@@ -228,9 +307,13 @@ class _ListPageState extends State<ListPage> {
                               setState(() {
                                 players.add(Player(
                                   name: _controller.text,
-                                  scores: [Score(date: DateTime.now().toIso8601String(), scoreValue: 0)],
+                                  scores: [
+                                    Score(
+                                        date: DateTime.now().toIso8601String(),
+                                        scoreValue: 0)
+                                  ],
                                 ));
-                                _updateScore(players.length - 1,0);
+                                _updateScore(players.length - 1, 0);
                                 _controller.clear();
                               });
                               Navigator.of(context).pop();
@@ -242,16 +325,21 @@ class _ListPageState extends State<ListPage> {
                     },
                   );
                 },
-                child: const Icon(Icons.add),
                 style: ElevatedButton.styleFrom(
-                  shape: CircleBorder(),
-                  padding: EdgeInsets.all(20),
+                  padding: EdgeInsets.all(15),
+                ),
+                child: const SizedBox(
+                  width: 90,
+                  child: Icon(
+                    Icons.add_rounded,
+                    size: 30,
+                  ),
                 ),
               ),
             ),
           Positioned(
-            bottom: 20,
-            right: 20,
+            bottom: 30,
+            right: 40,
             child: ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -259,10 +347,15 @@ class _ListPageState extends State<ListPage> {
                   MaterialPageRoute(builder: (context) => StatPage(players)),
                 );
               },
-              child: Icon(Icons.check),
               style: ElevatedButton.styleFrom(
-                shape: CircleBorder(),
-                padding: EdgeInsets.all(20),
+                padding: EdgeInsets.all(15),
+              ),
+              child: const SizedBox(
+                width: 90,
+                child: Icon(
+                  Icons.bar_chart_rounded,
+                  size: 30,
+                ),
               ),
             ),
           ),

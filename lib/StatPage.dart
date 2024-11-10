@@ -11,13 +11,18 @@ class StatPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Padding(
-        padding:
-            const EdgeInsets.only(left: 15.0, top: 30, right: 15, bottom: 15),
+        padding: const EdgeInsets.only(left: 15.0, top: 50, right: 15, bottom: 15),
         child: SfCartesianChart(
-          primaryXAxis: DateTimeAxis(),
-          primaryYAxis: NumericAxis(),
+          primaryXAxis: NumericAxis(), // Change to NumericAxis
+          primaryYAxis: NumericAxis(
+            interval: 0.5, // Adjust the interval for fewer labels
+          ),
           title: ChartTitle(text: 'Scores'),
-          legend: Legend(isVisible: true),
+          legend: Legend(
+            isVisible: true,
+            position: LegendPosition.bottom,
+            overflowMode: LegendItemOverflowMode.scroll,
+          ),
           tooltipBehavior: TooltipBehavior(enable: true),
           series: _getPlayerScoreSeries(),
         ),
@@ -25,14 +30,18 @@ class StatPage extends StatelessWidget {
     );
   }
 
-  List<LineSeries<Score, DateTime>> _getPlayerScoreSeries() {
+  List<LineSeries<Score, num>> _getPlayerScoreSeries() {
     return players.map((player) {
-      return LineSeries<Score, DateTime>(
+      num cumulativeSum = 0;
+      return LineSeries<Score, num>(
         name: player.name,
         dataSource: player.scores,
-        xValueMapper: (Score score, _) => DateTime.parse(score.date),
+        xValueMapper: (Score score, int index) {
+          cumulativeSum += score.scoreValue;
+          return cumulativeSum;
+        },
         yValueMapper: (Score score, _) => score.scoreValue,
-        dataLabelSettings: DataLabelSettings(isVisible: true),
+        dataLabelSettings: DataLabelSettings(isVisible: false), // Disable data labels
       );
     }).toList();
   }
